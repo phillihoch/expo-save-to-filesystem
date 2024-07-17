@@ -4,17 +4,66 @@ import {
   View,
   Button,
   type GestureResponderEvent,
+  Platform,
 } from "react-native";
 
 import { HelloWave } from "@/components/HelloWave";
 import ParallaxScrollView from "@/components/ParallaxScrollView";
 import { ThemedText } from "@/components/ThemedText";
 import { ThemedView } from "@/components/ThemedView";
+import * as FileSystem from "expo-file-system";
+import { shareAsync } from "expo-sharing";
 
 export default function HomeScreen() {
-  function downloadFromURL(event: GestureResponderEvent): void {
-    throw new Error("Function not implemented.");
-  }
+  const downloadFromURL = async (event: GestureResponderEvent) => {
+    const fileName = "meme.jpg";
+    try {
+      const result = await FileSystem.downloadAsync(
+        "https://i.imgur.com/ojvhqv8.jpeg",
+        FileSystem.documentDirectory + fileName
+      );
+      await save(result.uri, fileName, result.headers["content-type"]);
+    } catch (error) {
+      // TODO: error handling
+    }
+  };
+
+  const save = async (uri: string, fileName: string, mimeType: string) => {
+    if (Platform.OS === "ios") {
+      await shareAsync(uri);
+    } else if (Platform.OS === "android") {
+      saveOnAndroid(uri, fileName, mimeType);
+    }
+  };
+
+  const saveOnAndroid = async (
+    fileUri: string,
+    fileName: string,
+    mimeType: string
+  ) => {
+    const permissions =
+      await FileSystem.StorageAccessFramework.requestDirectoryPermissionsAsync();
+    if (!permissions.granted) {
+      // TODO error handling
+      return;
+    }
+    try {
+      const base64 = await FileSystem.readAsStringAsync(fileUri, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+      const createdFileUri =
+        await FileSystem.StorageAccessFramework.createFileAsync(
+          permissions.directoryUri,
+          fileName,
+          mimeType
+        );
+      await FileSystem.writeAsStringAsync(createdFileUri, base64, {
+        encoding: FileSystem.EncodingType.Base64,
+      });
+    } catch (e) {
+      // TODO: error handling
+    }
+  };
 
   return (
     <ParallaxScrollView
